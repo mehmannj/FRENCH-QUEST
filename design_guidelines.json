@@ -1,0 +1,186 @@
+{
+  "theme": "light",
+  "archetype": "3 (Pastel & Soft) - Customized for French Theme",
+  "design_philosophy": "A modern, student-focused gamified education platform. It blends 'Soft Utility' with 'Parisian Elegance'. Bright but elegant colors, high-contrast readable typography, soft gradients, and playful structural layouts. Not childish—suitable for teens and college students. The interface emphasizes progressive mastery through visual hierarchy and generous negative space.",
+  "colors": {
+    "background": {
+      "default": "#F8FAFC",
+      "paper": "#FFFFFF",
+      "subtle": "#F1F5F9"
+    },
+    "primary": {
+      "DEFAULT": "#3B82F6",
+      "foreground": "#FFFFFF",
+      "hover": "#2563EB",
+      "light": "#DBEAFE"
+    },
+    "secondary": {
+      "DEFAULT": "#EF4444",
+      "foreground": "#FFFFFF",
+      "hover": "#DC2626",
+      "light": "#FEE2E2"
+    },
+    "accent": {
+      "DEFAULT": "#F59E0B",
+      "foreground": "#FFFFFF",
+      "hover": "#D97706",
+      "light": "#FEF3C7"
+    },
+    "text": {
+      "primary": "#0F172A",
+      "secondary": "#475569",
+      "tertiary": "#94A3B8"
+    },
+    "border": {
+      "DEFAULT": "#E2E8F0",
+      "focus": "#93C5FD"
+    },
+    "success": "#10B981",
+    "warning": "#F59E0B",
+    "error": "#EF4444"
+  },
+  "typography": {
+    "font_family": {
+      "heading": "Outfit, sans-serif",
+      "body": "Work Sans, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "scale": {
+      "h1": "text-5xl sm:text-6xl tracking-tight font-bold",
+      "h2": "text-3xl sm:text-4xl tracking-tight font-bold",
+      "h3": "text-2xl sm:text-3xl tracking-tight font-semibold",
+      "h4": "text-xl sm:text-2xl font-semibold",
+      "body_large": "text-lg leading-relaxed",
+      "body": "text-base leading-relaxed",
+      "small": "text-sm text-secondary font-medium uppercase tracking-widest",
+      "caption": "text-xs text-tertiary"
+    },
+    "anti_patterns": [
+      "Do not use Inter for headings",
+      "Never center-align long body paragraphs",
+      "Do not jump more than 2 scale steps between heading and subheading"
+    ]
+  },
+  "spacing_and_layout": {
+    "philosophy": "Generous Spacing (Tailwind Scale). Use 2-3x more spacing than typical designs. Focus on visual breathing room.",
+    "container_padding": "p-6 md:p-8 lg:p-12",
+    "section_gap": "gap-12 md:gap-24",
+    "bento_grid": {
+      "dashboard": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+      "marketing": "grid-cols-1 md:grid-cols-8 lg:grid-cols-12 gap-8"
+    },
+    "radius": {
+      "card": "rounded-2xl",
+      "button": "rounded-full",
+      "input": "rounded-xl",
+      "badge": "rounded-full"
+    }
+  },
+  "components": {
+    "header": {
+      "style": "Glassmorphism. backdrop-blur-xl bg-white/70 border-b border-border/40",
+      "behavior": "sticky top-0 z-50"
+    },
+    "cards": {
+      "style": "bg-white border border-border shadow-sm rounded-2xl p-6",
+      "hover": "hover:-translate-y-1 hover:shadow-md transition-all duration-300"
+    },
+    "buttons": {
+      "primary": "bg-primary text-white font-semibold rounded-full px-6 py-3 hover:bg-primary-hover transition-colors shadow-sm hover:shadow",
+      "secondary": "bg-secondary-light text-secondary font-semibold rounded-full px-6 py-3 hover:bg-secondary transition-colors",
+      "ghost": "text-secondary hover:bg-slate-100 rounded-full px-6 py-3 transition-colors"
+    },
+    "inputs": {
+      "style": "border-border bg-white rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+    },
+    "progress_bars": {
+      "style": "h-3 rounded-full bg-slate-100 overflow-hidden",
+      "fill": "bg-gradient-to-r from-primary to-accent rounded-full h-full transition-all duration-500"
+    },
+    "shadcn_overrides": {
+      "Card": "Use custom structural layout over Shadcn Card for complex gamified UI to allow asymmetrical layers.",
+      "Dialog": "Add backdrop-blur-sm to overlay. Make content rounded-2xl.",
+      "Tabs": "Use rounded-full for tab lists, soft colored background for active tab instead of default boxy look."
+    }
+  },
+  "motion_and_interactions": {
+    "page_transition": {
+      "initial": { "opacity": 0, "y": 10 },
+      "animate": { "opacity": 1, "y": 0 },
+      "exit": { "opacity": 0, "y": -10 },
+      "transition": { "duration": 0.3, "ease": "easeOut" }
+    },
+    "list_stagger": {
+      "delay": 0.05
+    },
+    "micro_interactions": {
+      "button_tap": "scale: 0.98",
+      "hover_card": "y: -4px, shadow: lg"
+    },
+    "libraries": ["framer-motion"]
+  },
+  "icons": {
+    "library": "@phosphor-icons/react",
+    "weight": "duotone",
+    "usage": "Use 24px/32px for section headers, 16px/20px for inline text. Rely on vibrant primary/accent colors for icons in the dashboard."
+  },
+  "media": {
+    "images": [
+      {
+        "category": "hero_background",
+        "url": "https://images.unsplash.com/photo-1766340744536-0f55ffa60576?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNDR8MHwxfHNlYXJjaHwzfHxhYnN0cmFjdCUyMHBhc3RlbCUyMGdyYWRpZW50JTIwYmFja2dyb3VuZCUyMHNvZnR8ZW58MHx8fHwxNzc0NzM3MTk2fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Soft pastel gradient with a subtle texture. Use as a background for the hero section or full page wrappers.",
+        "usage_instructions": "Apply as an absolute background with opacity 40% behind the hero content."
+      },
+      {
+        "category": "paris_architecture",
+        "url": "https://images.pexels.com/photos/32682864/pexels-photo-32682864.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Elegant Parisian building with traditional rooftops.",
+        "usage_instructions": "Use in the marketing page hero or 'About the Course' section in a rounded-3xl container or bento grid item."
+      },
+      {
+        "category": "student_studying",
+        "url": "https://images.pexels.com/photos/8197503/pexels-photo-8197503.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Students concentrating on laptops.",
+        "usage_instructions": "Use in the community/social proof section of the landing page."
+      },
+      {
+        "category": "student_solo",
+        "url": "https://images.unsplash.com/photo-1740663173325-c3000e33c830?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzd8MHwxfHNlYXJjaHwxfHxjb2xsZWdlJTIwc3R1ZGVudCUyMHN0dWR5aW5nJTIwbGFwdG9wJTIwYnJpZ2h0fGVufDB8fHx8MTc3NDczNzE3Nnww&ixlib=rb-4.1.0&q=85",
+        "description": "Woman working on computer.",
+        "usage_instructions": "Use as an avatar placeholder or feature section imagery."
+      },
+      {
+        "category": "partner_logo_1",
+        "url": "https://images.unsplash.com/photo-1759724369762-376e0a29478b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MTJ8MHwxfHNlYXJjaHw0fHx1bml2ZXJzaXR5JTIwbG9nbyUyMHdoaXRlJTIwYmFja2dyb3VuZHxlbnwwfHx8fDE3NzQ3MzcyMDN8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract shapes mimicking an institutional logo.",
+        "usage_instructions": "Use in the 'Trusted By' or 'Partner Institutions' marquee strip."
+      },
+      {
+        "category": "partner_logo_2",
+        "url": "https://images.unsplash.com/photo-1657242700848-68ea132c9966?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MTJ8MHwxfHNlYXJjaHwxfHx1bml2ZXJzaXR5JTIwbG9nbyUyMHdoaXRlJTIwYmFja2dyb3VuZHxlbnwwfHx8fDE3NzQ3MzcyMDN8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract shape logo.",
+        "usage_instructions": "Use in the 'Trusted By' marquee strip."
+      },
+      {
+        "category": "partner_logo_3",
+        "url": "https://images.pexels.com/photos/812262/pexels-photo-812262.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Minimalist logo.",
+        "usage_instructions": "Use in the 'Trusted By' marquee strip."
+      }
+    ]
+  },
+  "accessibility": {
+    "contrast": "Ensure all text on primary blue/red backgrounds is white. Focus rings must use ring-primary.",
+    "motion": "Support prefers-reduced-motion via Framer Motion.",
+    "testing": "All interactive elements MUST have descriptive data-testid attributes."
+  },
+  "specific_page_instructions": {
+    "marketing_home": "Use a wide, asymmetric Bento grid for features. Hero should have a generous padding. Introduce the '7-Month Roadmap' visually here with a sweeping curved SVG path.",
+    "student_dashboard": "Strict, clean 'Control Room' grid. Mobile-first. Circular XP indicator at the top left, current streak flame icon. Next lesson card takes up the hero spot of the dashboard. Cardless design with subtle 1px borders.",
+    "practice_labs": "Immersive view. Hide main navigation or collapse it to minimize distractions. Use large, legible text (text-3xl) for French phrases. Playful success animations on correct answers.",
+    "ai_tutor": "Chat interface. Differentiate user and AI messages using background colors (User: Primary, AI: Soft Slate/White). Add a typing indicator animation.",
+    "mini_games": "Use vibrant colors here. Break out of the standard grid into a full-width container. Include floating elements.",
+    "admin_panel": "Standard Shadcn tables. Dense, high data visibility. No playful gradients here, keep it strictly functional."
+  }
+}
