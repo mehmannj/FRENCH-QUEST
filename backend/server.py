@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, UploadFile, File
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
@@ -14,6 +14,13 @@ from datetime import datetime, timezone, timedelta
 import bcrypt
 import jwt
 from bson import ObjectId
+
+# Import lesson content
+try:
+    from content.month1_lessons import MONTH_1_LESSONS, MONTH_1_QUIZZES
+except ImportError:
+    MONTH_1_LESSONS = []
+    MONTH_1_QUIZZES = {}
 
 # Configure logging
 logging.basicConfig(
@@ -705,16 +712,56 @@ async def get_admin_stats(request: Request):
     total_users = await db.users.count_documents({"role": "student"})
     total_lessons = await db.lessons.count_documents({})
     total_quizzes = await db.quizzes.count_documents({})
+    total_games = await db.game_scores.count_documents({})
     
     # Get recent activity
     recent_progress = await db.progress.find({}, {"_id": 0}).sort("completed_at", -1).limit(10).to_list(10)
+    
+    # Get user growth (last 7 days)
+    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    new_users_week = await db.users.count_documents({
+        "created_at": {"$gte": week_ago.isoformat()}
+    })
+    
+    # Get top performers
+    top_users = await db.users.find(
+        {"role": "student"},
+        {"_id": 0, "password_hash": 0}
+    ).sort("xp", -1).limit(5).to_list(5)
     
     return {
         "total_users": total_users,
         "total_lessons": total_lessons,
         "total_quizzes": total_quizzes,
-        "recent_activity": recent_progress
+        "total_game_plays": total_games,
+        "new_users_this_week": new_users_week,
+        "recent_activity": recent_progress,
+        "top_performers": top_users
     }
+
+@api_router.get("/admin/users")
+async def get_all_users(request: Request, skip: int = 0, limit: int = 50):
+    user = await get_current_user(request)
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    users = await db.users.find(
+        {},
+        {"_id": 0, "password_hash": 0}
+    ).skip(skip).limit(limit).to_list(limit)
+    
+    total = await db.users.count_documents({})
+    
+    return {"users": users, "total": total}
+
+@api_router.get("/admin/lessons")
+async def get_all_lessons_admin(request: Request):
+    user = await get_current_user(request)
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    lessons = await db.lessons.find({}, {"_id": 0}).sort([("month", 1), ("week", 1), ("day", 1)]).to_list(500)
+    return {"lessons": lessons, "total": len(lessons)}
 
 @api_router.post("/admin/lessons")
 async def create_lesson(lesson: LessonBase, request: Request):
@@ -728,6 +775,175 @@ async def create_lesson(lesson: LessonBase, request: Request):
     
     await db.lessons.insert_one(lesson_doc)
     return {"message": "Lesson created", "id": lesson_doc["id"]}
+
+@api_router.put("/admin/lessons/{lesson_id}")
+async def update_lesson(lesson_id: str, lesson: LessonBase, request: Request):
+    user = await get_current_user(request)
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    existing = await db.lessons.find_one({"id": lesson_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    
+    lesson_doc = lesson.model_dump()
+    lesson_doc["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.lessons.update_one({"id": lesson_id}, {"$set": lesson_doc})
+    return {"message": "Lesson updated", "id": lesson_id}
+
+@api_router.delete("/admin/lessons/{lesson_id}")
+async def delete_lesson(lesson_id: str, request: Request):
+    user = await get_current_user(request)
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    result = await db.lessons.delete_one({"id": lesson_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    
+    return {"message": "Lesson deleted", "id": lesson_id}
+
+@api_router.get("/admin/quizzes")
+async def get_all_quizzes_admin(request: Request):
+    user = await get_current_user(request)
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    quizzes = await db.quizzes.find({}, {"_id": 0}).to_list(500)
+    return {"quizzes": quizzes, "total": len(quizzes)}
+
+class QuizCreate(BaseModel):
+    lesson_id: str
+    questions: List[Dict[str, Any]]
+
+@api_router.post("/admin/quizzes")
+async def create_quiz(quiz: QuizCreate, request: Request):
+    user = await get_current_user(request)
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    existing = await db.quizzes.find_one({"lesson_id": quiz.lesson_id})
+    if existing:
+        await db.quizzes.update_one(
+            {"lesson_id": quiz.lesson_id},
+            {"$set": {"questions": quiz.questions, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        return {"message": "Quiz updated", "lesson_id": quiz.lesson_id}
+    
+    quiz_doc = {
+        "lesson_id": quiz.lesson_id,
+        "questions": quiz.questions,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.quizzes.insert_one(quiz_doc)
+    return {"message": "Quiz created", "lesson_id": quiz.lesson_id}
+
+@api_router.post("/admin/seed-content")
+async def seed_full_content(request: Request):
+    """Seed all Month 1 content"""
+    user = await get_current_user(request)
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    if not MONTH_1_LESSONS:
+        raise HTTPException(status_code=500, detail="Content not loaded")
+    
+    # Clear existing Month 1 content
+    await db.lessons.delete_many({"month": 1})
+    
+    # Insert new lessons
+    for lesson in MONTH_1_LESSONS:
+        lesson["created_at"] = datetime.now(timezone.utc).isoformat()
+        await db.lessons.insert_one(lesson)
+    
+    # Insert quizzes
+    for lesson_id, questions in MONTH_1_QUIZZES.items():
+        await db.quizzes.update_one(
+            {"lesson_id": lesson_id},
+            {"$set": {"lesson_id": lesson_id, "questions": questions}},
+            upsert=True
+        )
+    
+    return {
+        "message": "Content seeded successfully",
+        "lessons_added": len(MONTH_1_LESSONS),
+        "quizzes_added": len(MONTH_1_QUIZZES)
+    }
+
+# ===================
+# DAILY CHALLENGES
+# ===================
+
+@api_router.get("/challenges/daily")
+async def get_daily_challenge(request: Request):
+    user = await get_current_user(request)
+    
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    # Check if user already completed today's challenge
+    existing = await db.daily_challenges.find_one({
+        "user_id": user["id"],
+        "date": today
+    })
+    
+    if existing:
+        return {"completed": True, "challenge": existing}
+    
+    # Generate daily challenge
+    challenges = [
+        {"type": "lesson", "goal": "Complete 1 lesson", "xp_reward": 20},
+        {"type": "game", "goal": "Play 2 mini-games", "xp_reward": 15},
+        {"type": "vocab", "goal": "Learn 10 new words", "xp_reward": 25},
+        {"type": "speaking", "goal": "Complete 1 speaking exercise", "xp_reward": 30},
+        {"type": "streak", "goal": "Maintain your streak", "xp_reward": 10}
+    ]
+    
+    # Rotate based on day of year
+    day_of_year = datetime.now(timezone.utc).timetuple().tm_yday
+    daily_challenge = challenges[day_of_year % len(challenges)]
+    
+    return {
+        "completed": False,
+        "date": today,
+        "challenge": daily_challenge
+    }
+
+@api_router.post("/challenges/daily/complete")
+async def complete_daily_challenge(request: Request):
+    user = await get_current_user(request)
+    
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    # Check if already completed
+    existing = await db.daily_challenges.find_one({
+        "user_id": user["id"],
+        "date": today
+    })
+    
+    if existing:
+        return {"message": "Already completed", "xp_earned": 0}
+    
+    # Get today's challenge XP
+    day_of_year = datetime.now(timezone.utc).timetuple().tm_yday
+    xp_rewards = [20, 15, 25, 30, 10]
+    xp_earned = xp_rewards[day_of_year % len(xp_rewards)]
+    
+    # Record completion
+    await db.daily_challenges.insert_one({
+        "user_id": user["id"],
+        "date": today,
+        "completed_at": datetime.now(timezone.utc).isoformat(),
+        "xp_earned": xp_earned
+    })
+    
+    # Update user XP
+    await db.users.update_one(
+        {"_id": ObjectId(user["id"])},
+        {"$inc": {"xp": xp_earned}}
+    )
+    
+    return {"message": "Challenge completed!", "xp_earned": xp_earned}
 
 # ===================
 # HEALTH & ROOT

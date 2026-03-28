@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { 
   Gamepad2, 
@@ -7,11 +6,15 @@ import {
   Clock, 
   Star,
   Play,
-  CheckCircle2,
   Zap,
-  Target
+  Target,
+  Swords,
+  Calendar,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import { toast } from 'sonner';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -19,10 +22,11 @@ const Games = () => {
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeGame, setActiveGame] = useState(null);
-  const [gameState, setGameState] = useState(null);
+  const [dailyChallenge, setDailyChallenge] = useState(null);
 
   useEffect(() => {
     fetchGames();
+    fetchDailyChallenge();
   }, []);
 
   const fetchGames = async () => {
@@ -31,17 +35,36 @@ const Games = () => {
       setGames(response.data);
     } catch (error) {
       console.error('Error fetching games:', error);
-      // Default games
       setGames([
         { id: 'vocab-match', name: 'Vocabulary Match', name_fr: 'Correspondance de Vocabulaire', description: 'Match French words with their meanings', type: 'matching', difficulty: ['easy', 'medium', 'hard'], xp_reward: 20 },
         { id: 'sentence-builder', name: 'Sentence Builder', name_fr: 'Constructeur de Phrases', description: 'Drag and drop words to form correct sentences', type: 'drag-drop', difficulty: ['easy', 'medium', 'hard'], xp_reward: 25 },
         { id: 'memory-cards', name: 'Memory Cards', name_fr: 'Cartes Mémoire', description: 'Find matching pairs of French-English words', type: 'memory', difficulty: ['easy', 'medium', 'hard'], xp_reward: 15 },
         { id: 'translation-race', name: 'Translation Race', name_fr: 'Course de Traduction', description: 'Translate as many words as possible in time limit', type: 'timed', difficulty: ['easy', 'medium', 'hard'], xp_reward: 35 },
         { id: 'spelling-bee', name: 'French Spelling Bee', name_fr: 'Épellation Française', description: 'Spell French words correctly', type: 'spelling', difficulty: ['easy', 'medium', 'hard'], xp_reward: 25 },
-        { id: 'listening-quiz', name: 'Listening Challenge', name_fr: 'Défi d\'Écoute', description: 'Listen and choose the correct answer', type: 'listening', difficulty: ['easy', 'medium', 'hard'], xp_reward: 30 },
+        { id: 'boss-battle', name: 'Boss Battle', name_fr: 'Combat de Boss', description: 'Test all your skills against the Month Boss!', type: 'boss', difficulty: ['hard'], xp_reward: 100 },
       ]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDailyChallenge = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/api/challenges/daily`, { withCredentials: true });
+      setDailyChallenge(response.data);
+    } catch (error) {
+      console.error('Error fetching daily challenge:', error);
+    }
+  };
+
+  const completeDailyChallenge = async () => {
+    try {
+      const response = await axios.post(`${API_URL}/api/challenges/daily/complete`, {}, { withCredentials: true });
+      toast.success(`Daily challenge completed! +${response.data.xp_earned} XP`);
+      fetchDailyChallenge();
+    } catch (error) {
+      console.error('Error completing challenge:', error);
+      toast.error('Failed to complete challenge');
     }
   };
 
@@ -51,7 +74,8 @@ const Games = () => {
     memory: '🧠',
     timed: '⚡',
     spelling: '📝',
-    listening: '👂'
+    listening: '👂',
+    boss: '⚔️'
   };
 
   const gameColors = {
@@ -60,10 +84,11 @@ const Games = () => {
     memory: 'from-emerald-500 to-emerald-600',
     timed: 'from-amber-500 to-amber-600',
     spelling: 'from-pink-500 to-pink-600',
-    listening: 'from-cyan-500 to-cyan-600'
+    listening: 'from-cyan-500 to-cyan-600',
+    boss: 'from-red-600 to-red-700'
   };
 
-  // Simple Memory Game Component
+  // Memory Game Component
   const MemoryGame = ({ onClose }) => {
     const [cards, setCards] = useState([]);
     const [flipped, setFlipped] = useState([]);
@@ -77,7 +102,7 @@ const Games = () => {
       { french: 'Au revoir', english: 'Goodbye' },
       { french: 'Oui', english: 'Yes' },
       { french: 'Non', english: 'No' },
-      { french: 'S\'il vous plaît', english: 'Please' },
+      { french: "S'il vous plaît", english: 'Please' },
     ];
 
     useEffect(() => {
@@ -117,12 +142,10 @@ const Games = () => {
       return (
         <div className="text-center py-8">
           <div className="text-6xl mb-4">🎉</div>
-          <h3 className="text-2xl font-bold text-slate-900 mb-2">Congratulations!</h3>
+          <h3 className="text-2xl font-bold text-slate-900 mb-2">Félicitations!</h3>
           <p className="text-slate-600 mb-4">You matched all pairs in {moves} moves!</p>
           <div className="text-3xl font-bold text-blue-600 mb-6">+{score} XP</div>
-          <Button onClick={onClose} className="rounded-full">
-            Back to Games
-          </Button>
+          <Button onClick={onClose} className="rounded-full">Back to Games</Button>
         </div>
       );
     }
@@ -180,6 +203,11 @@ const Games = () => {
       { french: 'chat', english: 'cat' },
       { french: 'chien', english: 'dog' },
       { french: 'maison', english: 'house' },
+      { french: 'rouge', english: 'red' },
+      { french: 'bleu', english: 'blue' },
+      { french: 'vert', english: 'green' },
+      { french: 'grand', english: 'big' },
+      { french: 'petit', english: 'small' },
     ];
 
     useEffect(() => {
@@ -222,9 +250,7 @@ const Games = () => {
           <h3 className="text-2xl font-bold text-slate-900 mb-2">Time's Up!</h3>
           <p className="text-slate-600 mb-4">You scored {score} points!</p>
           <div className="text-3xl font-bold text-amber-600 mb-6">+{score} XP</div>
-          <Button onClick={onClose} className="rounded-full">
-            Back to Games
-          </Button>
+          <Button onClick={onClose} className="rounded-full">Back to Games</Button>
         </div>
       );
     }
@@ -259,10 +285,150 @@ const Games = () => {
             className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
             autoFocus
           />
-          <Button type="submit" className="rounded-xl">
-            Check
-          </Button>
+          <Button type="submit" className="rounded-xl">Check</Button>
         </form>
+      </div>
+    );
+  };
+
+  // Boss Battle Game Component
+  const BossBattle = ({ onClose }) => {
+    const [phase, setPhase] = useState(0);
+    const [bossHealth, setBossHealth] = useState(100);
+    const [playerHealth, setPlayerHealth] = useState(100);
+    const [currentQuestion, setCurrentQuestion] = useState(null);
+    const [selectedAnswer, setSelectedAnswer] = useState(null);
+    const [showResult, setShowResult] = useState(false);
+    const [gameOver, setGameOver] = useState(false);
+    const [victory, setVictory] = useState(false);
+
+    const questions = [
+      { question: "How do you say 'hello' in French?", options: ["Bonjour", "Au revoir", "Merci", "Oui"], correct: 0 },
+      { question: "What is 'fifteen' in French?", options: ["Douze", "Quinze", "Vingt", "Dix"], correct: 1 },
+      { question: "'Je suis' means:", options: ["I have", "I am", "I go", "I want"], correct: 1 },
+      { question: "Which is feminine?", options: ["Le livre", "La table", "Le stylo", "Le chat"], correct: 1 },
+      { question: "How do you say 'thank you'?", options: ["S'il vous plaît", "Pardon", "Merci", "Bonjour"], correct: 2 },
+      { question: "'J'ai faim' means:", options: ["I'm tired", "I'm hungry", "I'm cold", "I'm happy"], correct: 1 },
+      { question: "What color is 'vert'?", options: ["Red", "Blue", "Green", "Yellow"], correct: 2 },
+      { question: "'Nous sommes' means:", options: ["We have", "We are", "They are", "You are"], correct: 1 },
+    ];
+
+    useEffect(() => {
+      setCurrentQuestion(questions[phase]);
+    }, [phase]);
+
+    const handleAnswer = (index) => {
+      if (showResult) return;
+      setSelectedAnswer(index);
+      setShowResult(true);
+
+      setTimeout(() => {
+        if (index === currentQuestion.correct) {
+          const damage = 15;
+          const newHealth = bossHealth - damage;
+          setBossHealth(newHealth);
+          if (newHealth <= 0) {
+            setVictory(true);
+            setGameOver(true);
+          }
+        } else {
+          const damage = 20;
+          const newHealth = playerHealth - damage;
+          setPlayerHealth(newHealth);
+          if (newHealth <= 0) {
+            setVictory(false);
+            setGameOver(true);
+          }
+        }
+
+        if (phase < questions.length - 1 && !gameOver) {
+          setPhase(p => p + 1);
+          setSelectedAnswer(null);
+          setShowResult(false);
+        } else if (!gameOver) {
+          setVictory(bossHealth <= 0 || playerHealth > 0);
+          setGameOver(true);
+        }
+      }, 1500);
+    };
+
+    if (gameOver) {
+      return (
+        <div className="text-center py-8">
+          <div className="text-6xl mb-4">{victory ? '🏆' : '💀'}</div>
+          <h3 className="text-2xl font-bold text-slate-900 mb-2">
+            {victory ? 'Victory!' : 'Defeated!'}
+          </h3>
+          <p className="text-slate-600 mb-4">
+            {victory ? 'You defeated the Month 1 Boss!' : 'The boss was too strong. Keep practicing!'}
+          </p>
+          {victory && <div className="text-3xl font-bold text-amber-600 mb-6">+100 XP</div>}
+          <Button onClick={onClose} className="rounded-full">Back to Games</Button>
+        </div>
+      );
+    }
+
+    return (
+      <div>
+        {/* Health Bars */}
+        <div className="flex justify-between mb-6">
+          <div className="w-[45%]">
+            <div className="text-sm text-slate-600 mb-1">You</div>
+            <div className="h-4 bg-slate-200 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-green-500 transition-all"
+                style={{ width: `${playerHealth}%` }}
+              />
+            </div>
+          </div>
+          <Swords className="w-6 h-6 text-red-500" />
+          <div className="w-[45%]">
+            <div className="text-sm text-slate-600 mb-1 text-right">Boss</div>
+            <div className="h-4 bg-slate-200 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-red-500 transition-all"
+                style={{ width: `${bossHealth}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Boss Image */}
+        <div className="text-center mb-6">
+          <div className="text-6xl mb-2">🐉</div>
+          <p className="text-sm text-slate-500">Month 1 Boss: Le Dragon Débutant</p>
+        </div>
+
+        {/* Question */}
+        <div className="bg-slate-100 rounded-xl p-4 mb-4">
+          <p className="font-medium text-slate-900">{currentQuestion?.question}</p>
+        </div>
+
+        {/* Options */}
+        <div className="grid grid-cols-2 gap-3">
+          {currentQuestion?.options.map((option, i) => (
+            <button
+              key={i}
+              onClick={() => handleAnswer(i)}
+              disabled={showResult}
+              className={`p-4 rounded-xl border-2 text-left transition-all ${
+                showResult && i === currentQuestion.correct
+                  ? 'border-green-500 bg-green-50'
+                  : showResult && selectedAnswer === i
+                    ? 'border-red-500 bg-red-50'
+                    : selectedAnswer === i
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-slate-200 hover:border-blue-300'
+              }`}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 text-center text-sm text-slate-500">
+          Question {phase + 1} of {questions.length}
+        </div>
       </div>
     );
   };
@@ -273,13 +439,13 @@ const Games = () => {
         return <MemoryGame onClose={() => setActiveGame(null)} />;
       case 'translation-race':
         return <TranslationGame onClose={() => setActiveGame(null)} />;
+      case 'boss-battle':
+        return <BossBattle onClose={() => setActiveGame(null)} />;
       default:
         return (
           <div className="text-center py-8">
             <p className="text-slate-600 mb-4">This game is coming soon!</p>
-            <Button onClick={() => setActiveGame(null)} className="rounded-full">
-              Back to Games
-            </Button>
+            <Button onClick={() => setActiveGame(null)} className="rounded-full">Back to Games</Button>
           </div>
         );
     }
@@ -297,18 +463,53 @@ const Games = () => {
     <div className="min-h-screen bg-slate-50 py-8" data-testid="games-hub">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-100 text-green-700 text-sm font-medium mb-4">
             <Gamepad2 className="w-4 h-4" />
             Learn by Playing
           </div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
-            Mini-Games Hub
-          </h1>
+          <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Mini-Games Hub</h1>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
             Practice French vocabulary, grammar, and listening skills through fun interactive games
           </p>
         </div>
+
+        {/* Daily Challenge Card */}
+        {dailyChallenge && (
+          <div className={`mb-8 rounded-2xl p-6 ${dailyChallenge.completed ? 'bg-green-50 border border-green-200' : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${dailyChallenge.completed ? 'bg-green-200' : 'bg-white/20'}`}>
+                  {dailyChallenge.completed ? (
+                    <CheckCircle2 className="w-7 h-7 text-green-600" />
+                  ) : (
+                    <Calendar className="w-7 h-7 text-white" />
+                  )}
+                </div>
+                <div>
+                  <h3 className={`font-bold text-lg ${dailyChallenge.completed ? 'text-green-800' : ''}`}>
+                    Daily Challenge
+                  </h3>
+                  <p className={dailyChallenge.completed ? 'text-green-600' : 'text-amber-100'}>
+                    {dailyChallenge.completed ? 'Completed!' : dailyChallenge.challenge?.goal}
+                  </p>
+                </div>
+              </div>
+              {!dailyChallenge.completed && (
+                <div className="text-right">
+                  <div className="text-2xl font-bold">+{dailyChallenge.challenge?.xp_reward} XP</div>
+                  <Button 
+                    onClick={completeDailyChallenge}
+                    className="mt-2 rounded-full bg-white text-amber-600 hover:bg-amber-50"
+                    size="sm"
+                  >
+                    Complete
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Active Game Modal */}
         {activeGame && (
@@ -316,12 +517,7 @@ const Games = () => {
             <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl" data-testid="game-modal">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold text-slate-900">{activeGame.name}</h3>
-                <button 
-                  onClick={() => setActiveGame(null)}
-                  className="text-slate-400 hover:text-slate-600"
-                >
-                  ✕
-                </button>
+                <button onClick={() => setActiveGame(null)} className="text-slate-400 hover:text-slate-600">✕</button>
               </div>
               {renderGame()}
             </div>
@@ -330,15 +526,22 @@ const Games = () => {
 
         {/* Games Grid */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {games.map((game, i) => (
+          {games.map((game) => (
             <div
               key={game.id}
-              className="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-lg transition-all card-hover"
+              className={`bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-lg transition-all ${
+                game.type === 'boss' ? 'ring-2 ring-red-500' : ''
+              }`}
               data-testid={`game-card-${game.id}`}
             >
               {/* Game Header */}
-              <div className={`h-24 bg-gradient-to-r ${gameColors[game.type] || 'from-slate-500 to-slate-600'} flex items-center justify-center`}>
+              <div className={`h-24 bg-gradient-to-r ${gameColors[game.type] || 'from-slate-500 to-slate-600'} flex items-center justify-center relative`}>
                 <span className="text-4xl">{gameIcons[game.type] || '🎮'}</span>
+                {game.type === 'boss' && (
+                  <div className="absolute top-2 right-2 px-2 py-1 bg-red-700 rounded-full text-xs text-white font-bold">
+                    BOSS
+                  </div>
+                )}
               </div>
 
               {/* Game Content */}
@@ -375,23 +578,29 @@ const Games = () => {
                   className={`w-full rounded-full bg-gradient-to-r ${gameColors[game.type] || 'from-blue-500 to-blue-600'} hover:opacity-90`}
                 >
                   <Play className="w-4 h-4 mr-2" />
-                  Play Now
+                  {game.type === 'boss' ? 'Fight Boss!' : 'Play Now'}
                 </Button>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Coming Soon */}
+        {/* Tips Section */}
         <div className="mt-12 bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl p-8 text-center">
-          <h3 className="text-xl font-bold text-slate-900 mb-2">More Games Coming Soon!</h3>
-          <p className="text-slate-600 mb-4">
-            We're working on new exciting games including Boss Battles, Vocabulary Treasure Hunts, and more!
-          </p>
-          <div className="flex justify-center gap-4">
-            <div className="px-4 py-2 bg-white rounded-full text-sm font-medium text-purple-600">Boss Battle</div>
-            <div className="px-4 py-2 bg-white rounded-full text-sm font-medium text-pink-600">Treasure Hunt</div>
-            <div className="px-4 py-2 bg-white rounded-full text-sm font-medium text-amber-600">Daily Challenge</div>
+          <h3 className="text-xl font-bold text-slate-900 mb-2">Pro Tips</h3>
+          <div className="grid sm:grid-cols-3 gap-4 mt-6">
+            <div className="bg-white rounded-xl p-4">
+              <Zap className="w-6 h-6 text-amber-500 mx-auto mb-2" />
+              <p className="text-sm text-slate-600">Play daily to maintain your streak</p>
+            </div>
+            <div className="bg-white rounded-xl p-4">
+              <Target className="w-6 h-6 text-green-500 mx-auto mb-2" />
+              <p className="text-sm text-slate-600">Boss battles test all your skills</p>
+            </div>
+            <div className="bg-white rounded-xl p-4">
+              <Star className="w-6 h-6 text-purple-500 mx-auto mb-2" />
+              <p className="text-sm text-slate-600">Higher difficulty = more XP</p>
+            </div>
           </div>
         </div>
       </div>

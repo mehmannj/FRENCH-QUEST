@@ -22,6 +22,7 @@ import AITutor from "./pages/AITutor";
 import Profile from "./pages/Profile";
 import Progress from "./pages/Progress";
 import Achievements from "./pages/Achievements";
+import AdminPanel from "./pages/AdminPanel";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -86,6 +87,7 @@ function AppRoutes() {
       <Route path="/profile" element={<ProtectedRoute><Layout><Profile /></Layout></ProtectedRoute>} />
       <Route path="/progress" element={<ProtectedRoute><Layout><Progress /></Layout></ProtectedRoute>} />
       <Route path="/achievements" element={<ProtectedRoute><Layout><Achievements /></Layout></ProtectedRoute>} />
+      <Route path="/admin" element={<ProtectedRoute><Layout><AdminPanel /></Layout></ProtectedRoute>} />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
