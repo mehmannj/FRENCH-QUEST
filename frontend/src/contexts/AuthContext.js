@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -23,9 +23,31 @@ const formatApiErrorDetail = (detail) => {
   return String(detail);
 };
 
+// Configure axios interceptor for auth token
+const setupAxiosInterceptors = (getToken) => {
+  axios.interceptors.request.use(
+    (config) => {
+      const token = getToken();
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    },
+    (error) => Promise.reject(error)
+  );
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null); // null = checking, false = not authenticated, object = authenticated
   const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState(() => localStorage.getItem('frenchquest_token'));
+
+  const getToken = useCallback(() => token, [token]);
+
+  // Setup axios interceptors
+  useEffect(() => {
+    setupAxiosInterceptors(getToken);
+  }, [getToken]);
 
   // Check auth status on mount
   useEffect(() => {
@@ -33,13 +55,24 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const checkAuth = async () => {
+    const storedToken = localStorage.getItem('frenchquest_token');
+    if (!storedToken) {
+      setUser(false);
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await axios.get(`${API_URL}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${storedToken}` },
         withCredentials: true
       });
       setUser(response.data);
+      setToken(storedToken);
     } catch (error) {
+      localStorage.removeItem('frenchquest_token');
       setUser(false);
+      setToken(null);
     } finally {
       setLoading(false);
     }
@@ -52,6 +85,14 @@ export const AuthProvider = ({ children }) => {
         { email, password },
         { withCredentials: true }
       );
+      
+      // Extract token from response if provided
+      const authToken = response.data.access_token || response.headers['x-access-token'];
+      if (authToken) {
+        localStorage.setItem('frenchquest_token', authToken);
+        setToken(authToken);
+      }
+      
       setUser(response.data);
       return { success: true };
     } catch (error) {
@@ -67,6 +108,14 @@ export const AuthProvider = ({ children }) => {
         { name, email, password },
         { withCredentials: true }
       );
+      
+      // Extract token from response if provided
+      const authToken = response.data.access_token || response.headers['x-access-token'];
+      if (authToken) {
+        localStorage.setItem('frenchquest_token', authToken);
+        setToken(authToken);
+      }
+      
       setUser(response.data);
       return { success: true };
     } catch (error) {
@@ -81,6 +130,8 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
+      localStorage.removeItem('frenchquest_token');
+      setToken(null);
       setUser(false);
     }
   };
@@ -96,7 +147,8 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     refreshUser,
-    isAuthenticated: !!user && user !== false
+    isAuthenticated: !!user && user !== false,
+    token
   };
 
   return (

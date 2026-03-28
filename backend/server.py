@@ -227,8 +227,8 @@ async def register(user_data: UserCreate, response: Response):
     access_token = create_access_token(user_id, email)
     refresh_token = create_refresh_token(user_id)
     
-    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=86400, path="/")
-    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="none", max_age=86400, path="/")
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=True, samesite="none", max_age=604800, path="/")
     
     return {
         "id": user_id,
@@ -240,7 +240,8 @@ async def register(user_data: UserCreate, response: Response):
         "streak": 0,
         "current_month": 1,
         "badges": ["newcomer"],
-        "created_at": user_doc["created_at"]
+        "created_at": user_doc["created_at"],
+        "access_token": access_token
     }
 
 @api_router.post("/auth/login")
@@ -272,8 +273,8 @@ async def login(credentials: UserLogin, response: Response):
     access_token = create_access_token(user_id, email)
     refresh_token = create_refresh_token(user_id)
     
-    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=86400, path="/")
-    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="none", max_age=86400, path="/")
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=True, samesite="none", max_age=604800, path="/")
     
     return {
         "id": user_id,
@@ -285,7 +286,8 @@ async def login(credentials: UserLogin, response: Response):
         "streak": new_streak,
         "current_month": user.get("current_month", 1),
         "badges": user.get("badges", []),
-        "created_at": user.get("created_at", "")
+        "created_at": user.get("created_at", ""),
+        "access_token": access_token
     }
 
 @api_router.post("/auth/logout")
@@ -749,6 +751,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Set-Cookie"],
 )
 
 # ===================
