@@ -19,6 +19,55 @@ import { toast } from 'sonner';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
+const VocabCard = ({ word }) => {
+  const [playing, setPlaying] = useState(false);
+
+  const playWord = async () => {
+    if (playing) return;
+    setPlaying(true);
+    try {
+      const response = await axios.post(`${API_URL}/api/tts/generate`, {
+        text: word.french,
+        voice: "nova",
+        speed: 0.8
+      });
+      const audio = new Audio(`data:audio/mp3;base64,${response.data.audio_base64}`);
+      audio.onended = () => setPlaying(false);
+      audio.onerror = () => setPlaying(false);
+      audio.play();
+    } catch {
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(word.french);
+        utterance.lang = 'fr-FR';
+        utterance.rate = 0.7;
+        utterance.onend = () => setPlaying(false);
+        speechSynthesis.speak(utterance);
+      } else {
+        setPlaying(false);
+      }
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
+      <div className="flex-1">
+        <p className="text-xl font-bold text-blue-600">{word.french}</p>
+        {word.pronunciation && (
+          <p className="text-sm text-slate-500 italic">[{word.pronunciation}]</p>
+        )}
+        <p className="text-slate-700">{word.english || word.example}</p>
+      </div>
+      <button
+        onClick={playWord}
+        className={`p-3 rounded-full transition-all ${playing ? 'bg-blue-500 text-white animate-pulse' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}
+        data-testid={`play-vocab-${word.french}`}
+      >
+        <Volume2 className="w-5 h-5" />
+      </button>
+    </div>
+  );
+};
+
 const Lessons = () => {
   const { lessonId } = useParams();
   const { user, refreshUser } = useAuth();
@@ -251,18 +300,7 @@ const Lessons = () => {
               <h3 className="text-lg font-semibold text-slate-900 mb-4">Vocabulary</h3>
               <div className="grid gap-4">
                 {currentLesson.vocabulary?.map((word, i) => (
-                  <div key={i} className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
-                    <div className="flex-1">
-                      <p className="text-xl font-bold text-blue-600">{word.french}</p>
-                      {word.pronunciation && (
-                        <p className="text-sm text-slate-500 italic">[{word.pronunciation}]</p>
-                      )}
-                      <p className="text-slate-700">{word.english || word.example}</p>
-                    </div>
-                    <button className="p-3 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200">
-                      <Volume2 className="w-5 h-5" />
-                    </button>
-                  </div>
+                  <VocabCard key={i} word={word} />
                 ))}
               </div>
             </div>

@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
+const TOKEN_KEY = 'frenchquest_token';
 
 const AuthContext = createContext(null);
 
@@ -13,7 +14,6 @@ export const useAuth = () => {
   return context;
 };
 
-// Helper function to format API errors
 const formatApiErrorDetail = (detail) => {
   if (detail == null) return "Something went wrong. Please try again.";
   if (typeof detail === "string") return detail;
@@ -23,11 +23,12 @@ const formatApiErrorDetail = (detail) => {
   return String(detail);
 };
 
-// Configure axios interceptor for auth token
-const setupAxiosInterceptors = (getToken) => {
-  axios.interceptors.request.use(
+// Single global interceptor — reads token from localStorage every request
+let interceptorId = null;
+if (interceptorId === null) {
+  interceptorId = axios.interceptors.request.use(
     (config) => {
-      const token = getToken();
+      const token = localStorage.getItem(TOKEN_KEY);
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -35,27 +36,18 @@ const setupAxiosInterceptors = (getToken) => {
     },
     (error) => Promise.reject(error)
   );
-};
+}
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null); // null = checking, false = not authenticated, object = authenticated
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState(() => localStorage.getItem('frenchquest_token'));
 
-  const getToken = useCallback(() => token, [token]);
-
-  // Setup axios interceptors
-  useEffect(() => {
-    setupAxiosInterceptors(getToken);
-  }, [getToken]);
-
-  // Check auth status on mount
   useEffect(() => {
     checkAuth();
   }, []);
 
   const checkAuth = async () => {
-    const storedToken = localStorage.getItem('frenchquest_token');
+    const storedToken = localStorage.getItem(TOKEN_KEY);
     if (!storedToken) {
       setUser(false);
       setLoading(false);
@@ -63,16 +55,11 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      const response = await axios.get(`${API_URL}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${storedToken}` },
-        withCredentials: true
-      });
+      const response = await axios.get(`${API_URL}/api/auth/me`);
       setUser(response.data);
-      setToken(storedToken);
     } catch (error) {
-      localStorage.removeItem('frenchquest_token');
+      localStorage.removeItem(TOKEN_KEY);
       setUser(false);
-      setToken(null);
     } finally {
       setLoading(false);
     }
@@ -80,19 +67,11 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await axios.post(
-        `${API_URL}/api/auth/login`,
-        { email, password },
-        { withCredentials: true }
-      );
-      
-      // Extract token from response if provided
-      const authToken = response.data.access_token || response.headers['x-access-token'];
+      const response = await axios.post(`${API_URL}/api/auth/login`, { email, password });
+      const authToken = response.data.access_token;
       if (authToken) {
-        localStorage.setItem('frenchquest_token', authToken);
-        setToken(authToken);
+        localStorage.setItem(TOKEN_KEY, authToken);
       }
-      
       setUser(response.data);
       return { success: true };
     } catch (error) {
@@ -103,19 +82,11 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (name, email, password) => {
     try {
-      const response = await axios.post(
-        `${API_URL}/api/auth/register`,
-        { name, email, password },
-        { withCredentials: true }
-      );
-      
-      // Extract token from response if provided
-      const authToken = response.data.access_token || response.headers['x-access-token'];
+      const response = await axios.post(`${API_URL}/api/auth/register`, { name, email, password });
+      const authToken = response.data.access_token;
       if (authToken) {
-        localStorage.setItem('frenchquest_token', authToken);
-        setToken(authToken);
+        localStorage.setItem(TOKEN_KEY, authToken);
       }
-      
       setUser(response.data);
       return { success: true };
     } catch (error) {
@@ -126,12 +97,11 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await axios.post(`${API_URL}/api/auth/logout`, {}, { withCredentials: true });
+      await axios.post(`${API_URL}/api/auth/logout`);
     } catch (error) {
-      console.error('Logout error:', error);
+      // ignore
     } finally {
-      localStorage.removeItem('frenchquest_token');
-      setToken(null);
+      localStorage.removeItem(TOKEN_KEY);
       setUser(false);
     }
   };
@@ -148,7 +118,6 @@ export const AuthProvider = ({ children }) => {
     logout,
     refreshUser,
     isAuthenticated: !!user && user !== false,
-    token
   };
 
   return (

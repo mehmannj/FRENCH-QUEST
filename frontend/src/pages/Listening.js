@@ -1,7 +1,11 @@
-import React, { useState } from 'react';
-import { Headphones, Volume2, CheckCircle2, XCircle, Play, Pause } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import axios from 'axios';
+import { Headphones, Volume2, CheckCircle2, XCircle, Play, RotateCcw } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
+import { toast } from 'sonner';
+
+const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 const Listening = () => {
   const [currentExercise, setCurrentExercise] = useState(0);
@@ -9,59 +13,99 @@ const Listening = () => {
   const [showResult, setShowResult] = useState(false);
   const [score, setScore] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [completed, setCompleted] = useState(false);
+  const audioRef = useRef(null);
 
   const exercises = [
     {
-      audio: "Bonjour, je m'appelle Marie.",
+      french: "Bonjour, je m'appelle Marie.",
       question: "What is the speaker's name?",
       options: ["Marie", "Sophie", "Claire", "Julie"],
       correct: 0,
       transcript: "Bonjour, je m'appelle Marie."
     },
     {
-      audio: "J'habite à Paris depuis cinq ans.",
+      french: "J'habite à Paris depuis cinq ans.",
       question: "How long has the speaker lived in Paris?",
       options: ["Three years", "Five years", "Seven years", "Ten years"],
       correct: 1,
       transcript: "J'habite à Paris depuis cinq ans."
     },
     {
-      audio: "Il fait beau aujourd'hui.",
+      french: "Il fait beau aujourd'hui.",
       question: "What is the weather like?",
       options: ["It's raining", "It's nice/beautiful", "It's cold", "It's windy"],
       correct: 1,
       transcript: "Il fait beau aujourd'hui."
     },
     {
-      audio: "Je voudrais un café, s'il vous plaît.",
+      french: "Je voudrais un café, s'il vous plaît.",
       question: "What does the speaker want?",
       options: ["Tea", "Water", "Coffee", "Juice"],
       correct: 2,
       transcript: "Je voudrais un café, s'il vous plaît."
     },
     {
-      audio: "Le train part à huit heures.",
+      french: "Le train part à huit heures.",
       question: "What time does the train leave?",
       options: ["6 o'clock", "7 o'clock", "8 o'clock", "9 o'clock"],
       correct: 2,
       transcript: "Le train part à huit heures."
+    },
+    {
+      french: "Ma soeur a trois enfants.",
+      question: "How many children does the speaker's sister have?",
+      options: ["One", "Two", "Three", "Four"],
+      correct: 2,
+      transcript: "Ma soeur a trois enfants."
+    },
+    {
+      french: "Le restaurant est fermé le lundi.",
+      question: "When is the restaurant closed?",
+      options: ["Sunday", "Monday", "Tuesday", "Saturday"],
+      correct: 1,
+      transcript: "Le restaurant est fermé le lundi."
     }
   ];
 
   const exercise = exercises[currentExercise];
-  const progress = ((currentExercise + 1) / exercises.length) * 100;
+  const progressVal = ((currentExercise) / exercises.length) * 100;
 
-  const playAudio = () => {
+  const playAudio = async () => {
+    if (isPlaying) return;
     setIsPlaying(true);
-    // Simulate audio playback
-    setTimeout(() => setIsPlaying(false), 2000);
+
+    try {
+      const response = await axios.post(`${API_URL}/api/tts/generate`, {
+        text: exercise.french,
+        voice: "nova",
+        speed: 0.85
+      });
+
+      const audio = new Audio(`data:audio/mp3;base64,${response.data.audio_base64}`);
+      audioRef.current = audio;
+      audio.onended = () => setIsPlaying(false);
+      audio.onerror = () => setIsPlaying(false);
+      audio.play();
+    } catch {
+      // Fallback to browser TTS
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(exercise.french);
+        utterance.lang = 'fr-FR';
+        utterance.rate = 0.8;
+        utterance.onend = () => setIsPlaying(false);
+        speechSynthesis.speak(utterance);
+      } else {
+        setIsPlaying(false);
+        toast.error('Audio playback unavailable');
+      }
+    }
   };
 
   const checkAnswer = () => {
     if (selectedAnswer === null) return;
-    
     if (selectedAnswer === exercise.correct) {
-      setScore(score + 1);
+      setScore(s => s + 1);
     }
     setShowResult(true);
   };
@@ -71,6 +115,8 @@ const Listening = () => {
       setCurrentExercise(currentExercise + 1);
       setSelectedAnswer(null);
       setShowResult(false);
+    } else {
+      setCompleted(true);
     }
   };
 
@@ -79,38 +125,28 @@ const Listening = () => {
     setSelectedAnswer(null);
     setShowResult(false);
     setScore(0);
+    setCompleted(false);
   };
 
-  // Final Results
-  if (currentExercise === exercises.length - 1 && showResult) {
-    const finalScore = selectedAnswer === exercise.correct ? score + 1 : score;
+  if (completed) {
+    const finalScore = showResult && selectedAnswer === exercise.correct ? score : score;
     const percentage = (finalScore / exercises.length) * 100;
 
     return (
       <div className="min-h-screen bg-slate-50 py-8" data-testid="listening-results">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-white rounded-2xl p-8 border border-slate-200 text-center">
-            <div className="text-6xl mb-4">
-              {percentage >= 80 ? '🎉' : percentage >= 60 ? '👍' : '💪'}
+            <div className="w-20 h-20 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-6">
+              <Headphones className="w-10 h-10 text-purple-600" />
             </div>
             <h2 className="text-2xl font-bold text-slate-900 mb-2">Listening Practice Complete!</h2>
             <p className="text-slate-600 mb-6">You scored {finalScore} out of {exercises.length}</p>
             
             <div className="w-32 h-32 mx-auto mb-6 relative">
               <svg className="w-full h-full transform -rotate-90">
+                <circle cx="64" cy="64" r="56" fill="none" stroke="#e2e8f0" strokeWidth="12" />
                 <circle
-                  cx="64"
-                  cy="64"
-                  r="56"
-                  fill="none"
-                  stroke="#e2e8f0"
-                  strokeWidth="12"
-                />
-                <circle
-                  cx="64"
-                  cy="64"
-                  r="56"
-                  fill="none"
+                  cx="64" cy="64" r="56" fill="none"
                   stroke={percentage >= 80 ? '#10b981' : percentage >= 60 ? '#f59e0b' : '#ef4444'}
                   strokeWidth="12"
                   strokeDasharray={`${percentage * 3.52} 352`}
@@ -122,18 +158,17 @@ const Listening = () => {
               </div>
             </div>
 
+            <p className="text-lg font-medium mb-2 text-purple-700">+{finalScore * 15} XP earned</p>
             <p className="text-slate-600 mb-6">
-              {percentage >= 80 ? 'Excellent work! Your listening skills are impressive!' :
+              {percentage >= 80 ? 'Excellent! Your listening skills are impressive!' :
                percentage >= 60 ? 'Good job! Keep practicing to improve further.' :
                'Keep practicing! Listening takes time to develop.'}
             </p>
 
             <div className="flex gap-4 justify-center">
-              <Button onClick={resetQuiz} variant="outline" className="rounded-full">
+              <Button onClick={resetQuiz} variant="outline" className="rounded-full gap-2">
+                <RotateCcw className="w-4 h-4" />
                 Try Again
-              </Button>
-              <Button className="rounded-full bg-blue-500 hover:bg-blue-600">
-                Continue Learning
               </Button>
             </div>
           </div>
@@ -161,7 +196,7 @@ const Listening = () => {
             <span>Exercise {currentExercise + 1} of {exercises.length}</span>
             <span>Score: {score}/{currentExercise}</span>
           </div>
-          <Progress value={progress} className="h-3" />
+          <Progress value={progressVal} className="h-3" />
         </div>
 
         {/* Exercise Card */}
@@ -181,7 +216,8 @@ const Listening = () => {
                 <Play className="w-10 h-10 ml-1" />
               )}
             </button>
-            <p className="text-purple-100">Click to play audio</p>
+            <p className="text-purple-100">{isPlaying ? 'Playing audio...' : 'Click to play audio'}</p>
+            <p className="text-xs text-purple-200 mt-1">You can replay as many times as you need</p>
           </div>
 
           {/* Question */}
@@ -218,12 +254,8 @@ const Listening = () => {
                             ? 'border-blue-500 bg-blue-500'
                             : 'border-slate-300'
                     }`}>
-                      {showResult && i === exercise.correct && (
-                        <CheckCircle2 className="w-4 h-4 text-white" />
-                      )}
-                      {showResult && selectedAnswer === i && i !== exercise.correct && (
-                        <XCircle className="w-4 h-4 text-white" />
-                      )}
+                      {showResult && i === exercise.correct && <CheckCircle2 className="w-4 h-4 text-white" />}
+                      {showResult && selectedAnswer === i && i !== exercise.correct && <XCircle className="w-4 h-4 text-white" />}
                     </div>
                     <span className="font-medium">{option}</span>
                   </div>
@@ -267,10 +299,10 @@ const Listening = () => {
         <div className="mt-8 bg-purple-50 rounded-xl p-6">
           <h3 className="font-semibold text-purple-900 mb-3">Listening Tips</h3>
           <ul className="space-y-2 text-sm text-purple-700">
-            <li>• Listen for keywords and context clues</li>
-            <li>• Don't worry about understanding every word</li>
-            <li>• Play the audio multiple times if needed</li>
-            <li>• Focus on intonation and rhythm</li>
+            <li>- Listen for keywords and context clues</li>
+            <li>- Don't worry about understanding every word</li>
+            <li>- Play the audio multiple times if needed</li>
+            <li>- Focus on intonation and rhythm</li>
           </ul>
         </div>
       </div>

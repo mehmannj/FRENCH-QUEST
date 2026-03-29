@@ -1,8 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, Volume2, CheckCircle2, XCircle, RefreshCw, Play, StopCircle, MicOff } from 'lucide-react';
+import axios from 'axios';
+import { Mic, Volume2, CheckCircle2, XCircle, RefreshCw, Play, StopCircle } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
 import { toast } from 'sonner';
+
+const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 const Speaking = () => {
   const [currentPhrase, setCurrentPhrase] = useState(0);
@@ -148,17 +151,31 @@ const Speaking = () => {
     }
   };
 
-  const playAudio = () => {
+  const playAudio = async () => {
+    if (isPlaying) return;
     setIsPlaying(true);
-    // Use Web Speech API for text-to-speech
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(phrase.french);
-      utterance.lang = 'fr-FR';
-      utterance.rate = 0.8;
-      utterance.onend = () => setIsPlaying(false);
-      speechSynthesis.speak(utterance);
-    } else {
-      setTimeout(() => setIsPlaying(false), 1500);
+
+    try {
+      const response = await axios.post(`${API_URL}/api/tts/generate`, {
+        text: phrase.french,
+        voice: "nova",
+        speed: 0.85
+      });
+      const audio = new Audio(`data:audio/mp3;base64,${response.data.audio_base64}`);
+      audio.onended = () => setIsPlaying(false);
+      audio.onerror = () => setIsPlaying(false);
+      audio.play();
+    } catch {
+      // Fallback to browser TTS
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(phrase.french);
+        utterance.lang = 'fr-FR';
+        utterance.rate = 0.8;
+        utterance.onend = () => setIsPlaying(false);
+        speechSynthesis.speak(utterance);
+      } else {
+        setIsPlaying(false);
+      }
     }
   };
 

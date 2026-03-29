@@ -946,6 +946,58 @@ async def complete_daily_challenge(request: Request):
     return {"message": "Challenge completed!", "xp_earned": xp_earned}
 
 # ===================
+# TTS ENDPOINTS
+# ===================
+
+class TTSRequest(BaseModel):
+    text: str
+    voice: str = "nova"
+    speed: float = 0.9
+
+@api_router.post("/tts/generate")
+async def generate_tts(tts_req: TTSRequest, request: Request):
+    """Generate audio from French text using OpenAI TTS"""
+    await get_current_user(request)
+
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=503, detail="TTS not configured")
+
+    if len(tts_req.text) > 500:
+        raise HTTPException(status_code=400, detail="Text too long (max 500 chars)")
+
+    # Check cache first
+    import hashlib
+    cache_key = hashlib.md5(f"{tts_req.text}:{tts_req.voice}:{tts_req.speed}".encode()).hexdigest()
+    cached = await db.tts_cache.find_one({"cache_key": cache_key}, {"_id": 0})
+    if cached:
+        return {"audio_base64": cached["audio_base64"], "cached": True}
+
+    try:
+        from emergentintegrations.llm.openai import OpenAITextToSpeech
+
+        tts = OpenAITextToSpeech(api_key=EMERGENT_LLM_KEY)
+        audio_base64 = await tts.generate_speech_base64(
+            text=tts_req.text,
+            model="tts-1",
+            voice=tts_req.voice,
+            speed=tts_req.speed,
+        )
+
+        # Cache the result
+        await db.tts_cache.insert_one({
+            "cache_key": cache_key,
+            "text": tts_req.text,
+            "audio_base64": audio_base64,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+
+        return {"audio_base64": audio_base64, "cached": False}
+
+    except Exception as e:
+        logger.error(f"TTS error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to generate audio")
+
+# ===================
 # HEALTH & ROOT
 # ===================
 
@@ -981,6 +1033,7 @@ async def startup_event():
     await db.lessons.create_index([("month", 1), ("week", 1), ("day", 1)])
     await db.progress.create_index([("user_id", 1), ("lesson_id", 1)])
     await db.chat_history.create_index([("user_id", 1), ("session_id", 1)])
+    await db.tts_cache.create_index("cache_key", unique=True)
     
     # Seed admin user
     admin_exists = await db.users.find_one({"email": ADMIN_EMAIL})

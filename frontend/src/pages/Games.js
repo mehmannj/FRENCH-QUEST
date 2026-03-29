@@ -433,6 +433,214 @@ const Games = () => {
     );
   };
 
+  // Vocab Match Game Component
+  const VocabMatch = ({ onClose }) => {
+    const [score, setScore] = useState(0);
+    const [round, setRound] = useState(0);
+    const [showResult, setShowResult] = useState(false);
+    const [selectedAnswer, setSelectedAnswer] = useState(null);
+    const [gameOver, setGameOver] = useState(false);
+
+    const allWords = [
+      { french: 'bonjour', english: 'hello' },
+      { french: 'merci', english: 'thank you' },
+      { french: 'maison', english: 'house' },
+      { french: 'chien', english: 'dog' },
+      { french: 'chat', english: 'cat' },
+      { french: 'livre', english: 'book' },
+      { french: 'eau', english: 'water' },
+      { french: 'pain', english: 'bread' },
+      { french: 'rouge', english: 'red' },
+      { french: 'bleu', english: 'blue' },
+      { french: 'vert', english: 'green' },
+      { french: 'petit', english: 'small' },
+    ];
+
+    const [questions] = useState(() => {
+      const shuffled = [...allWords].sort(() => Math.random() - 0.5).slice(0, 8);
+      return shuffled.map(word => {
+        const wrong = allWords.filter(w => w.english !== word.english)
+          .sort(() => Math.random() - 0.5)
+          .slice(0, 3)
+          .map(w => w.english);
+        const options = [...wrong, word.english].sort(() => Math.random() - 0.5);
+        return { ...word, options, correctIndex: options.indexOf(word.english) };
+      });
+    });
+
+    const current = questions[round];
+
+    const handleAnswer = (index) => {
+      if (showResult) return;
+      setSelectedAnswer(index);
+      setShowResult(true);
+      if (index === current.correctIndex) {
+        setScore(s => s + 1);
+      }
+    };
+
+    const nextRound = () => {
+      if (round < questions.length - 1) {
+        setRound(r => r + 1);
+        setShowResult(false);
+        setSelectedAnswer(null);
+      } else {
+        setGameOver(true);
+      }
+    };
+
+    if (gameOver) {
+      const xp = score * 10;
+      return (
+        <div className="text-center py-8">
+          <div className="text-6xl mb-4">
+            {score >= 7 ? '🏆' : score >= 5 ? '👍' : '💪'}
+          </div>
+          <h3 className="text-2xl font-bold text-slate-900 mb-2">
+            {score >= 7 ? 'Amazing!' : score >= 5 ? 'Good job!' : 'Keep practicing!'}
+          </h3>
+          <p className="text-slate-600 mb-4">{score}/{questions.length} correct</p>
+          <div className="text-3xl font-bold text-blue-600 mb-6">+{xp} XP</div>
+          <Button onClick={onClose} className="rounded-full">Back to Games</Button>
+        </div>
+      );
+    }
+
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-sm text-slate-500">Question {round + 1}/{questions.length}</span>
+          <span className="text-sm font-bold text-blue-600">{score} correct</span>
+        </div>
+        <div className="text-center p-6 bg-blue-50 rounded-xl mb-6">
+          <p className="text-sm text-slate-500 mb-1">What does this mean?</p>
+          <p className="text-3xl font-bold text-blue-600">{current.french}</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          {current.options.map((opt, i) => (
+            <button
+              key={i}
+              onClick={() => handleAnswer(i)}
+              disabled={showResult}
+              className={`p-4 rounded-xl border-2 text-left transition-all ${
+                showResult && i === current.correctIndex
+                  ? 'border-green-500 bg-green-50'
+                  : showResult && selectedAnswer === i
+                    ? 'border-red-500 bg-red-50'
+                    : selectedAnswer === i
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-slate-200 hover:border-blue-300'
+              }`}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+        {showResult && (
+          <Button onClick={nextRound} className="w-full rounded-xl">
+            {round < questions.length - 1 ? 'Next' : 'See Results'}
+          </Button>
+        )}
+      </div>
+    );
+  };
+
+  // Spelling Bee Game Component
+  const SpellingBee = ({ onClose }) => {
+    const [round, setRound] = useState(0);
+    const [input, setInput] = useState('');
+    const [score, setScore] = useState(0);
+    const [showResult, setShowResult] = useState(false);
+    const [isCorrect, setIsCorrect] = useState(false);
+    const [gameOver, setGameOver] = useState(false);
+
+    const words = [
+      { french: 'bonjour', english: 'hello', hint: 'b_nj__r' },
+      { french: 'merci', english: 'thank you', hint: 'm_rc_' },
+      { french: 'maison', english: 'house', hint: 'm__s_n' },
+      { french: 'école', english: 'school', hint: 'éc__e' },
+      { french: 'famille', english: 'family', hint: 'f_m_lle' },
+      { french: 'travail', english: 'work', hint: 'tr_v__l' },
+      { french: 'restaurant', english: 'restaurant', hint: 'r_st__r_nt' },
+      { french: 'bibliothèque', english: 'library', hint: 'b_bl_othèq_e' },
+    ];
+
+    const current = words[round];
+
+    const checkSpelling = (e) => {
+      e.preventDefault();
+      const correct = input.toLowerCase().trim() === current.french.toLowerCase();
+      setIsCorrect(correct);
+      if (correct) setScore(s => s + 1);
+      setShowResult(true);
+    };
+
+    const nextRound = () => {
+      if (round < words.length - 1) {
+        setRound(r => r + 1);
+        setInput('');
+        setShowResult(false);
+        setIsCorrect(false);
+      } else {
+        setGameOver(true);
+      }
+    };
+
+    if (gameOver) {
+      const xp = score * 12;
+      return (
+        <div className="text-center py-8">
+          <div className="text-6xl mb-4">
+            {score >= 6 ? '🏆' : score >= 4 ? '📝' : '💪'}
+          </div>
+          <h3 className="text-2xl font-bold text-slate-900 mb-2">Spelling Complete!</h3>
+          <p className="text-slate-600 mb-4">{score}/{words.length} spelled correctly</p>
+          <div className="text-3xl font-bold text-pink-600 mb-6">+{xp} XP</div>
+          <Button onClick={onClose} className="rounded-full">Back to Games</Button>
+        </div>
+      );
+    }
+
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-sm text-slate-500">Word {round + 1}/{words.length}</span>
+          <span className="text-sm font-bold text-pink-600">{score} correct</span>
+        </div>
+        <div className="text-center p-6 bg-pink-50 rounded-xl mb-4">
+          <p className="text-sm text-slate-500 mb-1">Spell the French word for:</p>
+          <p className="text-2xl font-bold text-slate-800 mb-2">"{current.english}"</p>
+          <p className="text-sm text-pink-400">Hint: {current.hint}</p>
+        </div>
+        {!showResult ? (
+          <form onSubmit={checkSpelling} className="flex gap-3">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Type the French spelling..."
+              className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-pink-500"
+              autoFocus
+            />
+            <Button type="submit" className="rounded-xl bg-pink-500 hover:bg-pink-600">Check</Button>
+          </form>
+        ) : (
+          <div>
+            <div className={`p-4 rounded-xl mb-4 ${isCorrect ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+              <p className={`font-bold ${isCorrect ? 'text-green-700' : 'text-red-700'}`}>
+                {isCorrect ? 'Correct!' : 'Not quite!'}
+              </p>
+              {!isCorrect && <p className="text-sm text-slate-600 mt-1">Correct spelling: <strong className="text-green-700">{current.french}</strong></p>}
+            </div>
+            <Button onClick={nextRound} className="w-full rounded-xl">
+              {round < words.length - 1 ? 'Next Word' : 'See Results'}
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderGame = () => {
     switch (activeGame?.id) {
       case 'memory-cards':
@@ -441,6 +649,10 @@ const Games = () => {
         return <TranslationGame onClose={() => setActiveGame(null)} />;
       case 'boss-battle':
         return <BossBattle onClose={() => setActiveGame(null)} />;
+      case 'vocab-match':
+        return <VocabMatch onClose={() => setActiveGame(null)} />;
+      case 'spelling-bee':
+        return <SpellingBee onClose={() => setActiveGame(null)} />;
       default:
         return (
           <div className="text-center py-8">
