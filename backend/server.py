@@ -1156,21 +1156,22 @@ async def get_friends_progress(request: Request):
     if not friend_ids:
         return {"friends": []}
 
+    # Bulk query instead of N+1
+    friend_oids = [ObjectId(fid) for fid in friend_ids]
+    friends_cursor = db.users.find(
+        {"_id": {"$in": friend_oids}},
+        {"password_hash": 0}
+    )
     friends = []
-    for fid in friend_ids:
-        try:
-            friend = await db.users.find_one({"_id": ObjectId(fid)}, {"password_hash": 0})
-            if friend:
-                friends.append({
-                    "id": str(friend["_id"]),
-                    "name": friend.get("name", "Unknown"),
-                    "xp": friend.get("xp", 0),
-                    "level": friend.get("level", 1),
-                    "streak": friend.get("streak", 0),
-                    "badges": friend.get("badges", []),
-                })
-        except Exception:
-            continue
+    async for friend in friends_cursor:
+        friends.append({
+            "id": str(friend["_id"]),
+            "name": friend.get("name", "Unknown"),
+            "xp": friend.get("xp", 0),
+            "level": friend.get("level", 1),
+            "streak": friend.get("streak", 0),
+            "badges": friend.get("badges", []),
+        })
 
     friends.sort(key=lambda x: x["xp"], reverse=True)
     return {"friends": friends}
