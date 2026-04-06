@@ -322,6 +322,28 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
+
+            {/* Quick Links */}
+            <div className="bg-white rounded-2xl p-6 border border-slate-200">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4">Explore More</h3>
+              <div className="space-y-2">
+                <Link to="/weekly-challenges" className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 hover:bg-amber-100 transition-colors" data-testid="link-weekly-challenges">
+                  <Target className="w-5 h-5 text-amber-600" />
+                  <span className="font-medium text-slate-700">Weekly Challenges</span>
+                  <ArrowRight className="w-4 h-4 text-slate-400 ml-auto" />
+                </Link>
+                <Link to="/social" className="flex items-center gap-3 p-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 transition-colors" data-testid="link-social">
+                  <Star className="w-5 h-5 text-indigo-600" />
+                  <span className="font-medium text-slate-700">Friends & Social</span>
+                  <ArrowRight className="w-4 h-4 text-slate-400 ml-auto" />
+                </Link>
+                <Link to={`/assessment/${stats?.current_month || 1}`} className="flex items-center gap-3 p-3 rounded-xl bg-orange-50 hover:bg-orange-100 transition-colors" data-testid="link-assessment">
+                  <TrendingUp className="w-5 h-5 text-orange-600" />
+                  <span className="font-medium text-slate-700">Monthly Assessment</span>
+                  <ArrowRight className="w-4 h-4 text-slate-400 ml-auto" />
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </div>

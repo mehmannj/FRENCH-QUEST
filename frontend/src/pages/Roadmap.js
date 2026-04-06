@@ -221,9 +221,23 @@ const Roadmap = () => {
                   </div>
 
                   {/* Outcome */}
-                  <div className="flex items-start gap-2 p-3 bg-emerald-50 rounded-xl">
+                  <div className="flex items-start gap-2 p-3 bg-emerald-50 rounded-xl mb-3">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
                     <p className="text-sm text-emerald-700">{month.outcome}</p>
+                  </div>
+
+                  {/* Assessment & Certificate */}
+                  <div className="flex gap-2">
+                    <Link to={`/lessons?month=${month.month}`} className="flex-1">
+                      <Button size="sm" variant="outline" className="w-full rounded-full text-xs">
+                        Lessons
+                      </Button>
+                    </Link>
+                    <Link to={`/assessment/${month.month}`} className="flex-1">
+                      <Button size="sm" className={`w-full rounded-full text-xs bg-gradient-to-r ${month.color} text-white border-0`}>
+                        Assessment
+                      </Button>
+                    </Link>
                   </div>
                 </div>
               </div>

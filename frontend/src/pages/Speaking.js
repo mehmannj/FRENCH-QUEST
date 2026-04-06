@@ -11,6 +11,7 @@ const Speaking = () => {
   const [currentPhrase, setCurrentPhrase] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [score, setScore] = useState(null);
+  const [feedback, setFeedback] = useState('');
   const [completed, setCompleted] = useState([]);
   const [transcript, setTranscript] = useState('');
   const [isSupported, setIsSupported] = useState(true);
@@ -90,22 +91,50 @@ const Speaking = () => {
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z\s]/g, '');
 
-    // Calculate similarity
-    const targetWords = targetText.split(' ');
-    const spokenWords = spoken.split(' ');
-    
-    let matchCount = 0;
-    targetWords.forEach(word => {
-      if (spokenWords.some(sw => sw.includes(word) || word.includes(sw))) {
-        matchCount++;
-      }
+    // Calculate similarity using Levenshtein-like approach per word
+    const targetWords = targetText.split(' ').filter(Boolean);
+    const spokenWords = spoken.split(' ').filter(Boolean);
+
+    // Word-level matching with partial credit
+    let totalScore = 0;
+    targetWords.forEach(targetWord => {
+      let bestMatch = 0;
+      spokenWords.forEach(spokenWord => {
+        // Exact match
+        if (spokenWord === targetWord) {
+          bestMatch = Math.max(bestMatch, 1);
+          return;
+        }
+        // Starts with or contains
+        if (spokenWord.startsWith(targetWord) || targetWord.startsWith(spokenWord)) {
+          bestMatch = Math.max(bestMatch, 0.8);
+        }
+        // Partial overlap (shared characters ratio)
+        const shorter = Math.min(spokenWord.length, targetWord.length);
+        const longer = Math.max(spokenWord.length, targetWord.length);
+        let matches = 0;
+        for (let i = 0; i < shorter; i++) {
+          if (spokenWord[i] === targetWord[i]) matches++;
+        }
+        const charRatio = matches / longer;
+        if (charRatio > 0.5) {
+          bestMatch = Math.max(bestMatch, charRatio * 0.7);
+        }
+      });
+      totalScore += bestMatch;
     });
 
-    const similarity = (matchCount / targetWords.length) * 100;
+    const similarity = (totalScore / targetWords.length) * 100;
     const adjustedScore = Math.min(Math.max(Math.round(similarity), 0), 100);
-    
+
     setScore(adjustedScore);
-    
+    setFeedback(
+      adjustedScore >= 90 ? 'Excellent! Native-like pronunciation!' :
+      adjustedScore >= 70 ? 'Good job! A few sounds to refine.' :
+      adjustedScore >= 50 ? 'Getting there! Focus on the vowel sounds.' :
+      'Keep practicing! Listen to the audio and try again.'
+    );
+
     if (adjustedScore >= 70 && !completed.includes(currentPhrase)) {
       setCompleted([...completed, currentPhrase]);
       toast.success('Great pronunciation! +15 XP');
@@ -325,11 +354,7 @@ const Speaking = () => {
                   score >= 80 ? 'text-green-700' : 
                   score >= 60 ? 'text-amber-700' : 'text-red-700'
                 }`}>
-                  {score >= 90 ? 'Excellent! Parfait! 🎉' :
-                   score >= 80 ? 'Très bien! Great job!' :
-                   score >= 70 ? 'Bon travail! Keep it up!' :
-                   score >= 60 ? 'Getting there! Try again.' :
-                   'Keep practicing! Listen and try again.'}
+                  {feedback}
                 </p>
                 {score >= 70 && (
                   <p className="mt-2 text-green-600 font-medium">+15 XP earned!</p>

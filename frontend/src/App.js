@@ -23,6 +23,10 @@ import Profile from "./pages/Profile";
 import Progress from "./pages/Progress";
 import Achievements from "./pages/Achievements";
 import AdminPanel from "./pages/AdminPanel";
+import Assessment from "./pages/Assessment";
+import Certificate from "./pages/Certificate";
+import Social from "./pages/Social";
+import WeeklyChallenges from "./pages/WeeklyChallenges";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -88,6 +92,10 @@ function AppRoutes() {
       <Route path="/progress" element={<ProtectedRoute><Layout><Progress /></Layout></ProtectedRoute>} />
       <Route path="/achievements" element={<ProtectedRoute><Layout><Achievements /></Layout></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute><Layout><AdminPanel /></Layout></ProtectedRoute>} />
+      <Route path="/assessment/:month" element={<ProtectedRoute><Layout><Assessment /></Layout></ProtectedRoute>} />
+      <Route path="/certificate/:month" element={<ProtectedRoute><Layout><Certificate /></Layout></ProtectedRoute>} />
+      <Route path="/social" element={<ProtectedRoute><Layout><Social /></Layout></ProtectedRoute>} />
+      <Route path="/weekly-challenges" element={<ProtectedRoute><Layout><WeeklyChallenges /></Layout></ProtectedRoute>} />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />

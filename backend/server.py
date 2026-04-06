@@ -18,7 +18,25 @@ from bson import ObjectId
 # Import lesson content
 try:
     from content.month1_lessons import MONTH_1_LESSONS, MONTH_1_QUIZZES
-except ImportError:
+    from content.month2_lessons import MONTH_2_LESSONS, MONTH_2_QUIZZES
+    from content.month3_lessons import MONTH_3_LESSONS, MONTH_3_QUIZZES
+    from content.month4_lessons import MONTH_4_LESSONS, MONTH_4_QUIZZES
+    from content.month5_lessons import MONTH_5_LESSONS, MONTH_5_QUIZZES
+    from content.month6_lessons import MONTH_6_LESSONS, MONTH_6_QUIZZES
+    from content.month7_lessons import MONTH_7_LESSONS, MONTH_7_QUIZZES
+
+    ALL_LESSONS = {
+        1: MONTH_1_LESSONS, 2: MONTH_2_LESSONS, 3: MONTH_3_LESSONS,
+        4: MONTH_4_LESSONS, 5: MONTH_5_LESSONS, 6: MONTH_6_LESSONS, 7: MONTH_7_LESSONS,
+    }
+    ALL_QUIZZES = {
+        **MONTH_1_QUIZZES, **MONTH_2_QUIZZES, **MONTH_3_QUIZZES,
+        **MONTH_4_QUIZZES, **MONTH_5_QUIZZES, **MONTH_6_QUIZZES, **MONTH_7_QUIZZES,
+    }
+except ImportError as e:
+    print(f"Content import error: {e}")
+    ALL_LESSONS = {}
+    ALL_QUIZZES = {}
     MONTH_1_LESSONS = []
     MONTH_1_QUIZZES = {}
 
@@ -841,34 +859,39 @@ async def create_quiz(quiz: QuizCreate, request: Request):
 
 @api_router.post("/admin/seed-content")
 async def seed_full_content(request: Request):
-    """Seed all Month 1 content"""
+    """Seed all Month 1-7 content"""
     user = await get_current_user(request)
     if user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
-    
-    if not MONTH_1_LESSONS:
+
+    if not ALL_LESSONS:
         raise HTTPException(status_code=500, detail="Content not loaded")
-    
-    # Clear existing Month 1 content
-    await db.lessons.delete_many({"month": 1})
-    
-    # Insert new lessons
-    for lesson in MONTH_1_LESSONS:
-        lesson["created_at"] = datetime.now(timezone.utc).isoformat()
-        await db.lessons.insert_one(lesson)
-    
-    # Insert quizzes
-    for lesson_id, questions in MONTH_1_QUIZZES.items():
+
+    total_lessons = 0
+    total_quizzes = 0
+
+    # Clear and re-seed all months
+    for month_num, lessons in ALL_LESSONS.items():
+        await db.lessons.delete_many({"month": month_num})
+        for lesson in lessons:
+            lesson["created_at"] = datetime.now(timezone.utc).isoformat()
+            await db.lessons.insert_one(lesson)
+        total_lessons += len(lessons)
+
+    # Seed all quizzes
+    for lesson_id, questions in ALL_QUIZZES.items():
         await db.quizzes.update_one(
             {"lesson_id": lesson_id},
             {"$set": {"lesson_id": lesson_id, "questions": questions}},
             upsert=True
         )
-    
+        total_quizzes += 1
+
     return {
-        "message": "Content seeded successfully",
-        "lessons_added": len(MONTH_1_LESSONS),
-        "quizzes_added": len(MONTH_1_QUIZZES)
+        "message": "All content seeded successfully (Months 1-7)",
+        "lessons_added": total_lessons,
+        "quizzes_added": total_quizzes,
+        "months_seeded": list(ALL_LESSONS.keys())
     }
 
 # ===================
@@ -944,6 +967,332 @@ async def complete_daily_challenge(request: Request):
     )
     
     return {"message": "Challenge completed!", "xp_earned": xp_earned}
+
+# ===================
+# MONTHLY ASSESSMENTS
+# ===================
+
+@api_router.get("/assessments/{month}")
+async def get_monthly_assessment(month: int, request: Request):
+    """Get monthly assessment questions"""
+    user = await get_current_user(request)
+
+    if month < 1 or month > 7:
+        raise HTTPException(status_code=400, detail="Month must be 1-7")
+
+    # Gather all quiz questions for this month
+    prefix = f"m{month}"
+    assessment_questions = []
+    for lesson_id, questions in ALL_QUIZZES.items():
+        if lesson_id.startswith(prefix):
+            for q in questions:
+                assessment_questions.append({**q, "source_lesson": lesson_id})
+
+    if not assessment_questions:
+        raise HTTPException(status_code=404, detail="No assessment content for this month")
+
+    # Check if already completed
+    completed = await db.assessments.find_one(
+        {"user_id": user["id"], "month": month},
+        {"_id": 0}
+    )
+
+    return {
+        "month": month,
+        "questions": assessment_questions,
+        "total_questions": len(assessment_questions),
+        "passing_score": 70,
+        "completed": completed
+    }
+
+class AssessmentSubmission(BaseModel):
+    month: int
+    answers: list
+    score: float
+
+@api_router.post("/assessments/submit")
+async def submit_assessment(submission: AssessmentSubmission, request: Request):
+    """Submit monthly assessment results"""
+    user = await get_current_user(request)
+
+    passed = submission.score >= 70
+    xp_earned = int(submission.score * 2) if passed else int(submission.score * 0.5)
+
+    result = {
+        "user_id": user["id"],
+        "month": submission.month,
+        "score": submission.score,
+        "passed": passed,
+        "xp_earned": xp_earned,
+        "completed_at": datetime.now(timezone.utc).isoformat()
+    }
+
+    await db.assessments.update_one(
+        {"user_id": user["id"], "month": submission.month},
+        {"$set": result},
+        upsert=True
+    )
+
+    if passed:
+        await db.users.update_one(
+            {"_id": ObjectId(user["id"])},
+            {
+                "$inc": {"xp": xp_earned},
+                "$addToSet": {"badges": f"month_{submission.month}_complete"}
+            }
+        )
+
+    return {"passed": passed, "score": submission.score, "xp_earned": xp_earned}
+
+# ===================
+# WEEKLY CHALLENGES
+# ===================
+
+@api_router.get("/challenges/weekly")
+async def get_weekly_challenges(request: Request):
+    """Get weekly challenges"""
+    user = await get_current_user(request)
+
+    # Determine current week number
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    week_num = now.isocalendar()[1]
+    week_start = (now - timedelta(days=now.weekday())).strftime("%Y-%m-%d")
+
+    weekly_challenges = [
+        {"id": "wc1", "title": "Vocab Master", "description": "Learn 30 new vocabulary words", "target": 30, "xp_reward": 50, "type": "vocab"},
+        {"id": "wc2", "title": "Game Champion", "description": "Win 5 mini-games", "target": 5, "xp_reward": 40, "type": "games"},
+        {"id": "wc3", "title": "Speaking Star", "description": "Complete 3 speaking exercises", "target": 3, "xp_reward": 45, "type": "speaking"},
+        {"id": "wc4", "title": "Streak Warrior", "description": "Maintain a 7-day streak", "target": 7, "xp_reward": 60, "type": "streak"},
+        {"id": "wc5", "title": "Lesson Scholar", "description": "Complete 5 lessons this week", "target": 5, "xp_reward": 55, "type": "lessons"},
+    ]
+
+    # Select 3 challenges for this week based on week number
+    selected_indices = [(week_num * i) % len(weekly_challenges) for i in range(1, 4)]
+    selected = [weekly_challenges[i] for i in set(selected_indices)]
+    if len(selected) < 3:
+        for c in weekly_challenges:
+            if c not in selected:
+                selected.append(c)
+            if len(selected) >= 3:
+                break
+
+    # Get user progress for this week
+    user_progress = await db.weekly_challenges.find_one(
+        {"user_id": user["id"], "week_start": week_start},
+        {"_id": 0}
+    )
+
+    progress = user_progress.get("progress", {}) if user_progress else {}
+
+    for ch in selected:
+        ch["current"] = progress.get(ch["id"], 0)
+        ch["completed"] = ch["current"] >= ch["target"]
+
+    return {"week_start": week_start, "challenges": selected}
+
+@api_router.post("/challenges/weekly/{challenge_id}/progress")
+async def update_weekly_progress(challenge_id: str, request: Request):
+    """Increment weekly challenge progress"""
+    user = await get_current_user(request)
+    now = datetime.now(timezone.utc)
+    from datetime import timedelta
+    week_start = (now - timedelta(days=now.weekday())).strftime("%Y-%m-%d")
+
+    await db.weekly_challenges.update_one(
+        {"user_id": user["id"], "week_start": week_start},
+        {"$inc": {f"progress.{challenge_id}": 1}},
+        upsert=True
+    )
+
+    return {"message": "Progress updated"}
+
+# ===================
+# SOCIAL FEATURES
+# ===================
+
+@api_router.post("/social/follow/{target_user_id}")
+async def follow_user(target_user_id: str, request: Request):
+    """Follow another user"""
+    user = await get_current_user(request)
+
+    if user["id"] == target_user_id:
+        raise HTTPException(status_code=400, detail="Cannot follow yourself")
+
+    target = await db.users.find_one({"_id": ObjectId(target_user_id)})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    await db.follows.update_one(
+        {"follower_id": user["id"], "following_id": target_user_id},
+        {"$set": {
+            "follower_id": user["id"],
+            "following_id": target_user_id,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+
+    return {"message": f"Now following {target.get('name', 'user')}"}
+
+@api_router.delete("/social/unfollow/{target_user_id}")
+async def unfollow_user(target_user_id: str, request: Request):
+    """Unfollow a user"""
+    user = await get_current_user(request)
+    await db.follows.delete_one({"follower_id": user["id"], "following_id": target_user_id})
+    return {"message": "Unfollowed"}
+
+@api_router.get("/social/friends")
+async def get_friends_progress(request: Request):
+    """Get progress of followed users"""
+    user = await get_current_user(request)
+
+    follows = await db.follows.find(
+        {"follower_id": user["id"]},
+        {"_id": 0, "following_id": 1}
+    ).to_list(50)
+
+    friend_ids = [f["following_id"] for f in follows]
+    if not friend_ids:
+        return {"friends": []}
+
+    friends = []
+    for fid in friend_ids:
+        try:
+            friend = await db.users.find_one({"_id": ObjectId(fid)}, {"password_hash": 0})
+            if friend:
+                friends.append({
+                    "id": str(friend["_id"]),
+                    "name": friend.get("name", "Unknown"),
+                    "xp": friend.get("xp", 0),
+                    "level": friend.get("level", 1),
+                    "streak": friend.get("streak", 0),
+                    "badges": friend.get("badges", []),
+                })
+        except Exception:
+            continue
+
+    friends.sort(key=lambda x: x["xp"], reverse=True)
+    return {"friends": friends}
+
+@api_router.get("/social/users/search")
+async def search_users(q: str, request: Request):
+    """Search users by name"""
+    await get_current_user(request)
+
+    if len(q) < 2:
+        return {"users": []}
+
+    users = await db.users.find(
+        {"name": {"$regex": q, "$options": "i"}},
+        {"_id": 1, "name": 1, "xp": 1, "level": 1}
+    ).limit(10).to_list(10)
+
+    return {"users": [{"id": str(u["_id"]), "name": u.get("name"), "xp": u.get("xp", 0), "level": u.get("level", 1)} for u in users]}
+
+# ===================
+# CERTIFICATES
+# ===================
+
+@api_router.get("/certificates/{month}")
+async def get_certificate(month: int, request: Request):
+    """Get completion certificate data for a passed month"""
+    user = await get_current_user(request)
+
+    assessment = await db.assessments.find_one(
+        {"user_id": user["id"], "month": month, "passed": True},
+        {"_id": 0}
+    )
+
+    if not assessment:
+        raise HTTPException(status_code=404, detail="No passing assessment found for this month")
+
+    month_titles = {
+        1: "Absolute Beginner Foundation",
+        2: "Building Core Basics",
+        3: "Sentence Construction",
+        4: "Speaking Confidence",
+        5: "Intermediate Development",
+        6: "Stronger Fluency",
+        7: "Mastery & Exam Readiness"
+    }
+
+    return {
+        "user_name": user.get("name", "Student"),
+        "month": month,
+        "month_title": month_titles.get(month, f"Month {month}"),
+        "score": assessment["score"],
+        "completed_at": assessment["completed_at"],
+        "certificate_id": f"FQ-{user['id'][:8]}-M{month}",
+        "is_final": month == 7
+    }
+
+# ===================
+# NOTIFICATIONS / STREAK REMINDERS
+# ===================
+
+@api_router.get("/notifications")
+async def get_notifications(request: Request):
+    """Get user notifications and streak reminders"""
+    user = await get_current_user(request)
+    notifications = []
+
+    # Streak reminder
+    streak = user.get("streak", 0)
+    if streak > 0:
+        notifications.append({
+            "type": "streak",
+            "title": f"Streak: {streak} days!",
+            "message": f"Keep going! You're on a {streak}-day streak. Don't break it!",
+            "priority": "high"
+        })
+    else:
+        notifications.append({
+            "type": "streak",
+            "title": "Start your streak!",
+            "message": "Complete a lesson today to start building your streak.",
+            "priority": "medium"
+        })
+
+    # Check for incomplete daily challenge
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    daily_done = await db.daily_challenges.find_one({"user_id": user["id"], "date": today})
+    if not daily_done:
+        notifications.append({
+            "type": "daily_challenge",
+            "title": "Daily Challenge Available!",
+            "message": "Complete today's challenge to earn bonus XP.",
+            "priority": "medium"
+        })
+
+    # Check for available assessments
+    completed_months = []
+    assessments = await db.assessments.find(
+        {"user_id": user["id"], "passed": True},
+        {"_id": 0, "month": 1}
+    ).to_list(7)
+    completed_months = [a["month"] for a in assessments]
+
+    current_month = user.get("current_month", 1)
+    if current_month not in completed_months:
+        notifications.append({
+            "type": "assessment",
+            "title": f"Month {current_month} Assessment Ready",
+            "message": "Take the assessment when you're ready to advance!",
+            "priority": "low"
+        })
+
+    # XP milestones
+    xp = user.get("xp", 0)
+    next_milestone = ((xp // 500) + 1) * 500
+    notifications.append({
+        "type": "milestone",
+        "title": f"Next Milestone: {next_milestone} XP",
+        "message": f"You need {next_milestone - xp} more XP to reach the next milestone!",
+        "priority": "low"
+    })
+
+    return {"notifications": notifications}
 
 # ===================
 # TTS ENDPOINTS

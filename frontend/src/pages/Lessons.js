@@ -78,8 +78,13 @@ const Lessons = () => {
   const [quizAnswers, setQuizAnswers] = useState({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizResults, setQuizResults] = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState(0);
 
   useEffect(() => {
+    // Check for month param in URL
+    const params = new URLSearchParams(window.location.search);
+    const monthParam = params.get('month');
+    if (monthParam) setSelectedMonth(parseInt(monthParam));
     fetchLessons();
   }, []);
 
@@ -91,7 +96,7 @@ const Lessons = () => {
 
   const fetchLessons = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/lessons`, { withCredentials: true });
+      const response = await axios.get(`${API_URL}/api/lessons`);
       setLessons(response.data);
     } catch (error) {
       console.error('Error fetching lessons:', error);
@@ -99,6 +104,10 @@ const Lessons = () => {
       setLoading(false);
     }
   };
+
+  const filteredLessons = selectedMonth > 0
+    ? lessons.filter(l => l.month === selectedMonth)
+    : lessons;
 
   const fetchLesson = async (id) => {
     try {
@@ -136,21 +145,46 @@ const Lessons = () => {
     }
   };
 
-  const groupedLessons = lessons.reduce((acc, lesson) => {
+  const groupedLessons = filteredLessons.reduce((acc, lesson) => {
     const key = `Month ${lesson.month} - Week ${lesson.week}`;
     if (!acc[key]) acc[key] = [];
     acc[key].push(lesson);
     return acc;
   }, {});
 
+  const availableMonths = [...new Set(lessons.map(l => l.month))].sort((a, b) => a - b);
+
   // Lesson List View
   if (!lessonId) {
     return (
       <div className="min-h-screen bg-slate-50 py-8" data-testid="lessons-page">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-8">
+          <div className="mb-6">
             <h1 className="text-3xl font-bold text-slate-900 mb-2">French Lessons</h1>
             <p className="text-slate-600">Master French step by step with our structured curriculum</p>
+          </div>
+
+          {/* Month Filter */}
+          <div className="flex flex-wrap gap-2 mb-6" data-testid="month-filter">
+            <button
+              onClick={() => setSelectedMonth(0)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                selectedMonth === 0 ? 'bg-blue-500 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300'
+              }`}
+            >
+              All Months
+            </button>
+            {availableMonths.map(m => (
+              <button
+                key={m}
+                onClick={() => setSelectedMonth(m)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  selectedMonth === m ? 'bg-blue-500 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300'
+                }`}
+              >
+                Month {m}
+              </button>
+            ))}
           </div>
 
           {loading ? (

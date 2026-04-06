@@ -18,7 +18,9 @@ import {
   BookOpenCheck,
   PenLine,
   Settings,
-  Flame
+  Flame,
+  Users,
+  Target
 } from 'lucide-react';
 import { Button } from './ui/button';
 
@@ -121,6 +123,18 @@ const Layout = ({ children }) => {
                       <Link to="/achievements" className="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
                         <Trophy className="w-4 h-4" />
                         Achievements
+                      </Link>
+                      <Link to="/social" className="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
+                        <Users className="w-4 h-4" />
+                        Friends
+                      </Link>
+                      <Link to="/weekly-challenges" className="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
+                        <Target className="w-4 h-4" />
+                        Weekly Challenges
+                      </Link>
+                      <Link to="/roadmap" className="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
+                        <GraduationCap className="w-4 h-4" />
+                        Roadmap
                       </Link>
                       {user?.role === 'admin' && (
                         <Link to="/admin" className="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
